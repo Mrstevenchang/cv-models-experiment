@@ -16,9 +16,29 @@ class MAE_Encoder(nn.Module):
             for i in range(depth)
         ])
         self.norm = norm_layer(embed_dim)
+        self.initial_weights()
 
-    def init_weight(self):
+    def initial_weights(self):
+        # initialize position embedding
         pos_embed = get_2d_sincos_pos_embed(self.patch_embed.shape[-1], int(self.patch_embed.num_patches**.5), cls_token=True)
+        self.pos_embed.data.copy_(torch.from_numpy(pos_embed).float().unsqueeze(0))
+
+        w = self.patch_embed.proj.weight.data
+        torch.nn.init.xavier_uniform_(w)
+
+        torch.nn.init.normal_(self.cls_token, std=.02)
+        # torch.nn.init.normal_(self.mask_token, std=.02)
+
+        self.apply(self._init_weights)
+
+    def _init_weights(self, m):
+        if isinstance(m, nn.Linear):
+            nn.init.xavier_uniform_(m.weight)
+            if isinstance(m, nn.Linear) and m.bias is not None:
+                nn.init.constant_(m.bias, 0)
+        elif isinstance(m, nn.LayerNorm):
+            nn.init.constant_(m.bias, 0)
+            nn.init.constant_(m.weight, 1.0)
 
     def forward(self, x):
 
